@@ -1,0 +1,68 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt-broker
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+
+    networks:
+      - iot-network
+
+    restart: unless-stopped
+
+  mariadb:
+    image: mariadb:latest
+    container_name: temperature-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "3306:3306"
+
+    volumes:
+      - mariadb-data:/var/lib/mysql
+
+    networks:
+      - iot-network
+
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 3s
+      retries: 5
+
+  node-red:
+    image: nodered/node-red:latest
+    container_name: node-red
+    ports:
+      - "1880:1880"
+
+    environment:
+      - TZ=${TIMEZONE}
+
+    volumes:
+      - node-red-data:/data
+
+    networks:
+      - iot-network
+
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+      - mariadb
+
+networks:
+  iot-network:
+    driver: bridge
+
+volumes:
+  mariadb-data:
+  node-red-data:
