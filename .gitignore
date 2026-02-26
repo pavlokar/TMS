@@ -34,3 +34,4 @@ env/
 venv/
 .venv/
 poetry.toml
+*.db
