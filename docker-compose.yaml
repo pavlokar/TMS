@@ -25,7 +25,7 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
-      - "3306:3306"
+      - "3307:3306"
 
     volumes:
       - mariadb-data:/var/lib/mysql
@@ -35,9 +35,10 @@ services:
 
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: [ "CMD-SHELL", "mariadb-admin ping -h localhost -p$MYSQL_ROOT_PASSWORD || exit 1" ]
+      interval: 10s
       timeout: 3s
-      retries: 5
+      retries: 10
   phpmyadmin:
     image: phpmyadmin:latest
     container_name: phpmyadmin
