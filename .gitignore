@@ -27,7 +27,6 @@ dist-ssr
 __pycache__/
 *.py[cod]
 *.env
-*.env
 
 # Virtual environment
 env/
