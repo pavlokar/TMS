@@ -2,18 +2,25 @@ services:
   mosquitto:
     image: eclipse-mosquitto:latest
     container_name: mqtt-broker
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ ! -f /mosquitto/config/passwd ]; then
+          echo "Creating MQTT password file..."
+          mosquitto_passwd -b -c /mosquitto/config/passwd "$$MQTT_USER" "$$MQTT_PASSWORD"
+        fi
+        exec /docker-entrypoint.sh /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf
+    environment:
+      - MQTT_USER=${MQTT_USER}
+      - MQTT_PASSWORD=${MQTT_PASSWORD}
     ports:
       - "1883:1883"
-      - "9001:9001"
-
     volumes:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data
       - ./mosquitto/log:/mosquitto/log
-
     networks:
       - iot-network
-
     restart: unless-stopped
 
   mariadb:
@@ -26,19 +33,18 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3307:3306"
-
     volumes:
       - mariadb-data:/var/lib/mysql
-
+      - ./node-red/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - iot-network
-
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "mariadb-admin ping -h localhost -p$MYSQL_ROOT_PASSWORD || exit 1" ]
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -p$$MYSQL_ROOT_PASSWORD || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 10
+
   phpmyadmin:
     image: phpmyadmin:latest
     container_name: phpmyadmin
@@ -56,26 +62,44 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-
   node-red:
     image: nodered/node-red:latest
     container_name: node-red
     ports:
       - "1880:1880"
-
     environment:
       - TZ=${TIMEZONE}
-
+      - MQTT_USER=${MQTT_USER}
+      - MQTT_PASSWORD=${MQTT_PASSWORD}
     volumes:
       - node-red-data:/data
-
     networks:
       - iot-network
-
     restart: unless-stopped
     depends_on:
       - mosquitto
       - mariadb
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - iot-network
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
 
 networks:
   iot-network:
@@ -84,3 +108,4 @@ networks:
 volumes:
   mariadb-data:
   node-red-data:
+  grafana-data:
