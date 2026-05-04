@@ -2,332 +2,254 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <WiFi.h>
-#include <WebServer.h>
 #include <ArduinoJson.h>
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
 #include <PubSubClient.h>
+#include <ESP32Servo.h>
 
 // Pin Definitions
 #define ONE_WIRE_BUS 4
-#define GREEN_LED 12
-#define RED_LED 14
-#define YELLOW_LED 13
+#define GREEN_LED    12
+#define RED_LED      14
+#define YELLOW_LED   13
+#define SERVO_PIN    27
 
-// OLED Display (I2C: SDA=GPIO21, SCL=GPIO22)
-#define SCREEN_WIDTH 128
+// OLED Display
+#define SCREEN_WIDTH  128
 #define SCREEN_HEIGHT 64
-#define OLED_RESET -1
+#define OLED_RESET    -1
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+// Sensor
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
+// Servo
+Servo ventServo;
+int currentServoAngle = 0;
+
+// Constants
 const float TEMP_MIN = 19.0;
 const float TEMP_MAX = 26.0;
 const int MEASURE_INTERVAL = 5000;
 
+// States
 float currentTemp = 0.0;
 unsigned long lastMeasure = 0;
 String tempStatus = "";
 
-// WiFi + Server
-const char* ssid = "WLAN-ESP";
-const char* password = "agsesp32";
-WebServer server(80);
+// WiFi
+const char *ssid = "WLAN-ESP";
+const char *password = "agsesp32";
 
-// ============ MQTT
+// MQTT
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
-
-const char* mqtt_host = "10.204.119.42";
 const int mqtt_port = 1883;
+const char *mqtt_host = "10.204.119.42";
+const char *mqtt_client_id = "esp32-temp-01";
+const char *mqtt_user = "mqttuser";
+const char *mqtt_pass = "mqttpass";
 
-const char* mqtt_topic = "iot/esp32/temperature";
-const char* mqtt_client_id = "esp32-temp-01";
+// Topics
+const char *topic_pub_temp = "iot/esp32/temperature";
+const char *topic_cmd_led = "iot/esp32/cmd/led";
+const char *topic_cmd_servo = "iot/esp32/cmd/servo";
 
-// API Handler Interface
-class APIHandler {
-public:
-  virtual ~APIHandler() {}
-  virtual void handle() = 0;
-  virtual String getEndpoint() = 0;
-};
 
-// Temperature API Handler
-class TemperatureAPIHandler : public APIHandler {
-public:
-  void handle() override {
+void mqttCallback(char *topic, byte *payload, unsigned int length) {
+    // Null-terminate payload
+    char msg[64];
+    unsigned int len = min(length, (unsigned int) (sizeof(msg) - 1));
+    memcpy(msg, payload, len);
+    msg[len] = '\0';
+
+    Serial.printf("MQTT recv [%s]: %s\n", topic, msg);
+
+    // LED command: "green", "red", "yellow", "off"
+    if (strcmp(topic, topic_cmd_led) == 0) {
+        digitalWrite(GREEN_LED, LOW);
+        digitalWrite(RED_LED, LOW);
+        digitalWrite(YELLOW_LED, LOW);
+
+        if (strcmp(msg, "green") == 0) {
+            digitalWrite(GREEN_LED, HIGH);
+        } else if (strcmp(msg, "red") == 0) {
+            digitalWrite(RED_LED, HIGH);
+        } else if (strcmp(msg, "yellow") == 0) {
+            digitalWrite(YELLOW_LED, HIGH);
+        }
+        // "off" -> all remain LOW
+    }
+
+    // Servo command: angle 0-180
+    if (strcmp(topic, topic_cmd_servo) == 0) {
+        int angle = atoi(msg);
+        angle = constrain(angle, 0, 180);
+        ventServo.write(angle);
+        currentServoAngle = angle;
+        Serial.printf("Servo -> %d deg\n", angle);
+    }
+}
+
+
+void updateDisplay() {
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+
+    display.setCursor(0, 0);
+    display.printf("Temp: %.1f C", currentTemp);
+
+    display.setCursor(0, 12);
+    display.printf("Range: %.0f-%.0f C", TEMP_MIN, TEMP_MAX);
+
+    display.setCursor(0, 24);
+    display.printf("Status: %s", tempStatus.c_str());
+
+    display.setCursor(0, 36);
+    display.printf("Servo: %d deg", currentServoAngle);
+
+    display.setCursor(0, 48);
+    display.printf("MQTT: %s", mqttClient.connected() ? "OK" : "DISC");
+
+    display.display();
+}
+
+void mqttReconnect() {
+    int attempts = 0;
+    while (WiFi.status() == WL_CONNECTED && !mqttClient.connected() && attempts < 3) {
+        Serial.printf("MQTT connecting (%d/3)... ", attempts + 1);
+
+        if (mqttClient.connect(mqtt_client_id, mqtt_user, mqtt_pass)) {
+            Serial.println("OK");
+            // Subscribe to command topics
+            mqttClient.subscribe(topic_cmd_led);
+            mqttClient.subscribe(topic_cmd_servo);
+            Serial.println("Subscribed to cmd topics");
+        } else {
+            Serial.printf("failed rc=%d\n", mqttClient.state());
+            delay(2000);
+        }
+        attempts++;
+    }
+}
+
+void publishTemperature() {
+    if (!mqttClient.connected()) return;
+
     DynamicJsonDocument doc(256);
     doc["temperature"] = currentTemp;
     doc["status"] = tempStatus;
+    doc["device_id"] = mqtt_client_id;
     doc["minTemp"] = TEMP_MIN;
     doc["maxTemp"] = TEMP_MAX;
+    doc["servo"] = currentServoAngle;
 
-    String json;
-    serializeJson(doc, json);
+    char payload[256];
+    size_t n = serializeJson(doc, payload, sizeof(payload));
 
-    server.sendHeader("Access-Control-Allow-Origin", "*");
-    server.send(200, "application/json", json);
-  }
-
-  String getEndpoint() override {
-    return "/api/temperature";
-  }
-};
-
-// Config API Handler
-class ConfigAPIHandler : public APIHandler {
-public:
-  void handle() override {
-    DynamicJsonDocument doc(256);
-    doc["minTemp"] = TEMP_MIN;
-    doc["maxTemp"] = TEMP_MAX;
-    doc["measureInterval"] = MEASURE_INTERVAL;
-
-    String json;
-    serializeJson(doc, json);
-
-    server.sendHeader("Access-Control-Allow-Origin", "*");
-    server.send(200, "application/json", json);
-  }
-
-  String getEndpoint() override {
-    return "/api/config";
-  }
-};
-
-// LED Controller
-void updateLEDs() {
-  if (currentTemp >= TEMP_MIN && currentTemp <= TEMP_MAX) {
-    tempStatus = "optimal";
-    digitalWrite(GREEN_LED, HIGH);
-    digitalWrite(RED_LED, LOW);
-    digitalWrite(YELLOW_LED, LOW);
-  }
-  else if (currentTemp > TEMP_MAX) {
-    tempStatus = "too_high";
-    digitalWrite(GREEN_LED, LOW);
-    digitalWrite(RED_LED, HIGH);
-    digitalWrite(YELLOW_LED, LOW);
-  }
-  else {
-    tempStatus = "too_low";
-    digitalWrite(GREEN_LED, LOW);
-    digitalWrite(RED_LED, LOW);
-    digitalWrite(YELLOW_LED, HIGH);
-  }
-}
-
-// Display Controller
-void updateDisplay() {
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-
-  display.setCursor(0, 0);
-  display.print("Temp: ");
-  display.print(currentTemp, 1);
-  display.println(" C");
-
-  display.setCursor(0, 12);
-  display.print("Range: ");
-  display.print(TEMP_MIN, 0);
-  display.print("-");
-  display.print(TEMP_MAX, 0);
-  display.println(" C");
-
-  display.setCursor(0, 24);
-  display.print("Status: ");
-  display.println(tempStatus);
-
-  display.setCursor(0, 36);
-  if (WiFi.status() == WL_CONNECTED) {
-    display.print("WiFi OK: ");
-    display.println(WiFi.localIP());
-  } else {
-    display.println("WiFi: Not connected");
-  }
-
-  display.setCursor(0, 48);
-  display.print("MQTT: ");
-  display.println(mqttClient.connected() ? "OK" : "DISCONNECTED");
-
-  display.display();
-}
-
-// CORS preflight
-void handleOptions() {
-  server.sendHeader("Access-Control-Allow-Origin", "*");
-  server.sendHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
-  server.send(200);
-}
-
-// MQTT reconnect
-void mqttReconnect() {
-  while (WiFi.status() == WL_CONNECTED && !mqttClient.connected()) {
-    Serial.print("MQTT connecting... ");
-    if (mqttClient.connect(mqtt_client_id)) {
-      Serial.println("OK");
-      // optional subscribe:
-      // mqttClient.subscribe("iot/esp32/cmd/#");
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(mqttClient.state());
-      Serial.println(" retry in 2s");
-      delay(2000);
-    }
-  }
-}
-
-void publishTemperatureMqtt() {
-  if (!mqttClient.connected()) return;
-
-  DynamicJsonDocument doc(256);
-  doc["temperature"] = currentTemp;
-  doc["status"] = tempStatus;
-  doc["minTemp"] = TEMP_MIN;
-  doc["maxTemp"] = TEMP_MAX;
-  doc["ts_ms"] = (uint32_t)millis();
-
-  char payload[256];
-  size_t n = serializeJson(doc, payload, sizeof(payload));
-
-  bool ok = mqttClient.publish(mqtt_topic, reinterpret_cast<const uint8_t *>(payload), n, false);
-
-  Serial.print("MQTT publish: ");
-  Serial.println(ok ? "OK" : "FAILED");
+    bool ok = mqttClient.publish(topic_pub_temp,
+                                 reinterpret_cast<const uint8_t *>(payload),
+                                 n, false);
+    Serial.printf("MQTT pub: %s\n", ok ? "OK" : "FAIL");
 }
 
 // Temperature measurement
 void measureTemperature() {
-  sensors.requestTemperatures();
-  currentTemp = sensors.getTempCByIndex(0);
+    sensors.requestTemperatures();
+    currentTemp = sensors.getTempCByIndex(0);
 
-  Serial.print("Temperature: ");
-  Serial.print(currentTemp);
-  Serial.println(" C");
+    if (currentTemp >= TEMP_MIN && currentTemp <= TEMP_MAX) {
+        tempStatus = "optimal";
+    } else if (currentTemp > TEMP_MAX) {
+        tempStatus = "too_high";
+    } else {
+        tempStatus = "too_low";
+    }
 
-  updateLEDs();
-  updateDisplay();
-  publishTemperatureMqtt();
+    Serial.printf("Temp: %.1f C [%s]\n", currentTemp, tempStatus.c_str());
+
+    updateDisplay();
+    publishTemperature();
 }
 
 // Initialization Methods
 void initDisplay() {
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println("Error: OLED not found!");
-    while (1) { delay(100); }
-  }
-
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.println("Starting...");
-  display.display();
-  delay(1000);
-}
-
-void initLEDs() {
-  pinMode(GREEN_LED, OUTPUT);
-  pinMode(RED_LED, OUTPUT);
-  pinMode(YELLOW_LED, OUTPUT);
+    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+        Serial.println("OLED not found!");
+        while (1) delay(100);
+    }
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(0, 0);
+    display.println("Starting...");
+    display.display();
+    delay(1000);
 }
 
 void initWiFi() {
-  Serial.print("Connecting to WiFi: ");
-  Serial.println(ssid);
+    Serial.printf("WiFi: connecting to %s\n", ssid);
+    WiFi.begin(ssid, password);
 
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.setCursor(0, 0);
-  display.println("Connecting to WiFi...");
-  display.display();
+    int timeout = 0;
+    while (WiFi.status() != WL_CONNECTED && timeout < 20) {
+        delay(500);
+        Serial.print(".");
+        timeout++;
+    }
 
-  WiFi.begin(ssid, password);
-
-  int timeout = 0;
-  while (WiFi.status() != WL_CONNECTED && timeout < 20) {
-    delay(500);
-    Serial.print(".");
-    timeout++;
-  }
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi connected!");
-    Serial.print("IP: ");
-    Serial.println(WiFi.localIP());
-
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setCursor(0, 0);
-    display.println("WiFi: OK");
-    display.println(WiFi.localIP());
-    display.display();
-    delay(1500);
-  } else {
-    Serial.println("\nWiFi error!");
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setCursor(0, 0);
-    display.println("WiFi: error!");
-    display.display();
-  }
-}
-
-void initServer() {
-  static TemperatureAPIHandler tempHandler;
-  static ConfigAPIHandler configHandler;
-
-  server.on("/api/temperature", HTTP_GET, []() { tempHandler.handle(); });
-  server.on("/api/config", HTTP_GET, []() { configHandler.handle(); });
-  server.on("/api/temperature", HTTP_OPTIONS, handleOptions);
-  server.on("/api/config", HTTP_OPTIONS, handleOptions);
-
-  server.begin();
-  Serial.println("API Server started!");
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.printf("\nWiFi OK - IP: %s\n", WiFi.localIP().toString().c_str());
+    } else {
+        Serial.println("\nWiFi FAILED");
+    }
 }
 
 void setup() {
-  Serial.begin(115200);
-  delay(1000);
+    Serial.begin(115200);
+    delay(1000);
+    Serial.println("\n== ESP32 CPS Start ==");
 
-  Serial.println("\n\nESP32 Engine starting...");
+    // Hardware init
+    initDisplay();
+    pinMode(GREEN_LED, OUTPUT);
+    pinMode(RED_LED, OUTPUT);
+    pinMode(YELLOW_LED, OUTPUT);
 
-  initDisplay();
-  initLEDs();
-  sensors.begin();
-  initWiFi();
+    ventServo.attach(SERVO_PIN);
+    ventServo.write(0);
 
-  // MQTT init
-  mqttClient.setServer(mqtt_host, mqtt_port);
-  if (WiFi.status() == WL_CONNECTED) {
-    mqttReconnect();
-  }
+    sensors.begin();
+    initWiFi();
 
-  initServer();
+    // MQTT init
+    mqttClient.setServer(mqtt_host, mqtt_port);
+    mqttClient.setCallback(mqttCallback);
 
-  measureTemperature();
-  lastMeasure = millis();
+    if (WiFi.status() == WL_CONNECTED) {
+        mqttReconnect();
+    }
+
+    measureTemperature();
+    lastMeasure = millis();
 }
 
 void loop() {
-  server.handleClient();
+    // MQTT keep-alive + reconnect
+    if (WiFi.status() == WL_CONNECTED) {
+        if (!mqttClient.connected()) mqttReconnect();
+        mqttClient.loop();
+    }
 
-  // MQTT keep-alive
-  if (WiFi.status() == WL_CONNECTED) {
-    if (!mqttClient.connected()) mqttReconnect();
-    mqttClient.loop();
-  }
+    // Periodic measurement
+    if (millis() - lastMeasure >= (unsigned long) MEASURE_INTERVAL) {
+        measureTemperature();
+        lastMeasure = millis();
+    }
 
-  if (millis() - lastMeasure >= (unsigned long)MEASURE_INTERVAL) {
-    measureTemperature();
-    lastMeasure = millis();
-  }
-
-  delay(50);
+    delay(50);
 }

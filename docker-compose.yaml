@@ -2,14 +2,6 @@ services:
   mosquitto:
     image: eclipse-mosquitto:latest
     container_name: mqtt-broker
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        if [ ! -f /mosquitto/config/passwd ]; then
-          echo "Creating MQTT password file..."
-          mosquitto_passwd -b -c /mosquitto/config/passwd "$$MQTT_USER" "$$MQTT_PASSWORD"
-        fi
-        exec /docker-entrypoint.sh /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf
     environment:
       - MQTT_USER=${MQTT_USER}
       - MQTT_PASSWORD=${MQTT_PASSWORD}
@@ -63,12 +55,16 @@ services:
     restart: unless-stopped
 
   node-red:
-    image: nodered/node-red:latest
+    build:
+      context: ./node-red
+      dockerfile: Dockerfile
     container_name: node-red
     ports:
       - "1880:1880"
     environment:
       - TZ=${TIMEZONE}
+      - NODE_RED_USER=${NODE_RED_USER}
+      - NODE_RED_PASSWORD=${NODE_RED_PASSWORD}
       - MQTT_USER=${MQTT_USER}
       - MQTT_PASSWORD=${MQTT_PASSWORD}
     volumes:

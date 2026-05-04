@@ -1,0 +1,585 @@
+[
+    {
+        "id": "f6f2187d.f17ca8",
+        "type": "tab",
+        "label": "CPS-Flow",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "af1746d0cbf0685a",
+        "type": "mqtt in",
+        "z": "f6f2187d.f17ca8",
+        "name": "Temp",
+        "topic": "iot/esp32/temperature",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "dd79c6a88eb26361",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 110,
+        "y": 200,
+        "wires": [
+            [
+                "bbba31ba0fc6a0b4"
+            ]
+        ]
+    },
+    {
+        "id": "bbba31ba0fc6a0b4",
+        "type": "json",
+        "z": "f6f2187d.f17ca8",
+        "name": "",
+        "property": "payload.temperature",
+        "action": "",
+        "pretty": false,
+        "x": 270,
+        "y": 280,
+        "wires": [
+            [
+                "e2fb1fc2b428f70a",
+                "bcfa9f656b887ed1",
+                "f2af522f4a8234d9"
+            ]
+        ]
+    },
+    {
+        "id": "e2fb1fc2b428f70a",
+        "type": "function",
+        "z": "f6f2187d.f17ca8",
+        "name": "Insert Data into DB",
+        "func": "// msg.payload ist das JSON-Objekt vom ESP32\nconst p = msg.payload;\n\nconst deviceId = p.device_id || \"esp32-temp-01\";\nconst temp = Number(p.temperature);\nconst status = String(p.status || \"unknown\");\n\nif (!Number.isFinite(temp)) return null;\n\n// Node-RED kann \"now\" nehmen, oder du nimmst Zeit vom ESP\nconst ts = new Date().toISOString().slice(0, 19).replace('T', ' ');\n\nmsg.topic = \"INSERT INTO temperature_readings (device_id, temperature, status, ts) VALUES (?, ?, ?, ?)\";\nmsg.payload = [deviceId, temp, status, ts];\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 490,
+        "y": 200,
+        "wires": [
+            [
+                "ffad749ba749fafc"
+            ]
+        ]
+    },
+    {
+        "id": "ffad749ba749fafc",
+        "type": "mysql",
+        "z": "f6f2187d.f17ca8",
+        "mydb": "56dfd77b180ea934",
+        "name": "mariadb",
+        "x": 760,
+        "y": 200,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f2af522f4a8234d9",
+        "type": "function",
+        "z": "f6f2187d.f17ca8",
+        "name": "display payload",
+        "func": "const p = msg.payload;\nconst temp = Number(p.temperature);\nconst status = String(p.status || \"unknown\");\nif (!Number.isFinite(temp)) return null;\n\nmsg.payload = `${temp.toFixed(1)} °C (${status})`;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 280,
+        "wires": [
+            [
+                "5975df7b11d4e5e9"
+            ]
+        ]
+    },
+    {
+        "id": "61318623a7897952",
+        "type": "ui-chart",
+        "z": "f6f2187d.f17ca8",
+        "group": "16b10082c5acb264",
+        "name": "Temp-Dashboard",
+        "label": "chart",
+        "order": 9007199254740991,
+        "chartType": "line",
+        "category": "topic",
+        "categoryType": "msg",
+        "xAxisLabel": "Time",
+        "xAxisProperty": "",
+        "xAxisPropertyType": "timestamp",
+        "xAxisType": "time",
+        "xAxisFormat": "",
+        "xAxisFormatType": "auto",
+        "xmin": "",
+        "xmax": "",
+        "yAxisLabel": "Temperature",
+        "yAxisProperty": "payload",
+        "yAxisPropertyType": "msg",
+        "ymin": "",
+        "ymax": "",
+        "bins": 10,
+        "action": "append",
+        "stackSeries": false,
+        "pointShape": "circle",
+        "pointRadius": 4,
+        "showLegend": true,
+        "removeOlder": 1,
+        "removeOlderUnit": "3600",
+        "removeOlderPoints": "",
+        "colors": [
+            "#0095ff",
+            "#ff0000",
+            "#ff7f0e",
+            "#2ca02c",
+            "#a347e1",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "textColor": [
+            "#666666"
+        ],
+        "textColorDefault": true,
+        "gridColor": [
+            "#e5e5e5"
+        ],
+        "gridColorDefault": true,
+        "width": 6,
+        "height": 8,
+        "className": "",
+        "interpolation": "linear",
+        "x": 750,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "bcfa9f656b887ed1",
+        "type": "function",
+        "z": "f6f2187d.f17ca8",
+        "name": "process dashboard data",
+        "func": "const p = msg.payload;\nconst temp = Number(p.temperature);\nif (!Number.isFinite(temp)) return null;\n\nmsg.topic = p.device_id || \"esp32-temp-01\"; // Serienname\nmsg.payload = temp;                         // Wert für Chart\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 490,
+        "y": 340,
+        "wires": [
+            [
+                "61318623a7897952"
+            ]
+        ]
+    },
+    {
+        "id": "5975df7b11d4e5e9",
+        "type": "ui-text",
+        "z": "f6f2187d.f17ca8",
+        "group": "47e119f957f33efd",
+        "order": 0,
+        "width": 0,
+        "height": 0,
+        "name": "Display-Text",
+        "label": "Current temperature: ",
+        "format": "{{msg.payload}}",
+        "layout": "col-center",
+        "style": true,
+        "font": "",
+        "fontSize": 16,
+        "color": "#717171",
+        "wrapText": false,
+        "className": "",
+        "value": "payload",
+        "valueType": "msg",
+        "x": 750,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "3be213707fecd261",
+        "type": "mysql",
+        "z": "f6f2187d.f17ca8",
+        "mydb": "56dfd77b180ea934",
+        "name": "mariadb",
+        "x": 560,
+        "y": 420,
+        "wires": [
+            [
+                "73de7329f92935a2"
+            ]
+        ]
+    },
+    {
+        "id": "73de7329f92935a2",
+        "type": "ui-table",
+        "z": "f6f2187d.f17ca8",
+        "group": "9432e789eea95fa2",
+        "name": "Temperature Data",
+        "label": "",
+        "order": 0,
+        "width": 0,
+        "height": 0,
+        "maxrows": 0,
+        "passthru": false,
+        "autocols": true,
+        "showSearch": true,
+        "deselect": true,
+        "selectionType": "click",
+        "columns": [],
+        "mobileBreakpoint": "sm",
+        "mobileBreakpointType": "defaults",
+        "action": "append",
+        "className": "",
+        "x": 750,
+        "y": 420,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "c261c67b32d04f1d",
+        "type": "function",
+        "z": "f6f2187d.f17ca8",
+        "name": "Select Data into DB",
+        "func": "const f = msg.payload || {};\n\nlet sql = `\nSELECT ts, temperature, status, device_id\nFROM temperature_readings\nWHERE 1 = 1\n`;\n\nconst params = [];\n\nif (f.device_id && String(f.device_id).trim() !== \"\") {\n    sql += \" AND device_id = ?\";\n    params.push(String(f.device_id).trim());\n}\n\nif (f.from && String(f.from).trim() !== \"\") {\n    sql += \" AND ts >= ?\";\n    params.push(String(f.from).trim());\n}\n\nif (f.to && String(f.to).trim() !== \"\") {\n    sql += \" AND ts <= ?\";\n    params.push(String(f.to).trim());\n}\n\nif (f.min_temperature !== undefined && f.min_temperature !== null && f.min_temperature !== \"\") {\n    const minTemp = Number(f.min_temperature);\n    if (Number.isFinite(minTemp)) {\n        sql += \" AND temperature >= ?\";\n        params.push(minTemp);\n    }\n}\n\nif (f.max_temperature !== undefined && f.max_temperature !== null && f.max_temperature !== \"\") {\n    const maxTemp = Number(f.max_temperature);\n    if (Number.isFinite(maxTemp)) {\n        sql += \" AND temperature <= ?\";\n        params.push(maxTemp);\n    }\n}\n\nsql += \" ORDER BY ts DESC\";\n\nlet limit = Number(f.limit || 100);\n\nif (!Number.isInteger(limit) || limit <= 0) {\n    limit = 100;\n}\n\nif (limit > 1000) {\n    limit = 1000;\n}\n\nsql += \" LIMIT ?\";\nparams.push(limit);\n\nmsg.topic = sql;\nmsg.payload = params;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 420,
+        "wires": [
+            [
+                "3be213707fecd261"
+            ]
+        ]
+    },
+    {
+        "id": "ea631fa9a7994329",
+        "type": "ui-form",
+        "z": "f6f2187d.f17ca8",
+        "name": "Temperature Data Form",
+        "group": "9432e789eea95fa2",
+        "label": "",
+        "order": 0,
+        "width": 0,
+        "height": 0,
+        "options": [
+            {
+                "label": "von",
+                "key": "from",
+                "type": "date",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "bis",
+                "key": "to",
+                "type": "date",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "Min. Temperatur",
+                "key": "min_temperature",
+                "type": "text",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "Max. Temperatur",
+                "key": "max_temperature",
+                "type": "text",
+                "required": false,
+                "rows": null
+            },
+            {
+                "label": "Max. Anzahl",
+                "key": "limit",
+                "type": "number",
+                "required": false,
+                "rows": null
+            }
+        ],
+        "formValue": {
+            "from": "",
+            "to": "",
+            "min_temperature": "",
+            "max_temperature": "",
+            "limit": ""
+        },
+        "payload": "",
+        "submit": "Absenden",
+        "cancel": "Löschen",
+        "resetOnSubmit": false,
+        "topic": "topic",
+        "topicType": "msg",
+        "splitLayout": true,
+        "className": "",
+        "passthru": false,
+        "dropdownOptions": [
+            {
+                "dropdown": "",
+                "value": "device_id",
+                "label": "Device"
+            }
+        ],
+        "x": 130,
+        "y": 420,
+        "wires": [
+            [
+                "c261c67b32d04f1d"
+            ]
+        ]
+    },
+    {
+        "id": "dd79c6a88eb26361",
+        "type": "mqtt-broker",
+        "name": "mqtt-broker",
+        "broker": "mosquitto",
+        "port": 1883,
+        "clientid": "node-red",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "56dfd77b180ea934",
+        "type": "MySQLdatabase",
+        "name": "temp-db",
+        "host": "mariadb",
+        "port": "3306",
+        "db": "temperaturedb",
+        "tz": "",
+        "charset": "UTF8"
+    },
+    {
+        "id": "16b10082c5acb264",
+        "type": "ui-group",
+        "z": "f6f2187d.f17ca8",
+        "name": "Diagramm",
+        "page": "b0a45c062adc63d4",
+        "width": 6,
+        "height": 1,
+        "order": -1,
+        "showTitle": false,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "47e119f957f33efd",
+        "type": "ui-group",
+        "name": "Current-Temp-Grupp",
+        "page": "b1298e3aa44d2ad6",
+        "width": 6,
+        "height": 1,
+        "order": -1,
+        "showTitle": false,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "9432e789eea95fa2",
+        "type": "ui-group",
+        "name": "History",
+        "page": "7b708a1a8601fc08",
+        "width": 6,
+        "height": 1,
+        "order": -1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default"
+    },
+    {
+        "id": "b0a45c062adc63d4",
+        "type": "ui-page",
+        "name": "Dashboard TMS",
+        "ui": "08cf3cdde85cdead",
+        "path": "/chart",
+        "icon": "home",
+        "layout": "grid",
+        "theme": "9035255b6fbef99f",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": -1,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "b1298e3aa44d2ad6",
+        "type": "ui-page",
+        "name": "Current-Temperature",
+        "ui": "08cf3cdde85cdead",
+        "path": "/current-temperature",
+        "icon": "home",
+        "layout": "grid",
+        "theme": "9035255b6fbef99f",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": -1,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "7b708a1a8601fc08",
+        "type": "ui-page",
+        "name": "Temperature-History",
+        "ui": "08cf3cdde85cdead",
+        "path": "/history",
+        "icon": "home",
+        "layout": "grid",
+        "theme": "9035255b6fbef99f",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "order": -1,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "08cf3cdde85cdead",
+        "type": "ui-base",
+        "name": "Mein Dashboard",
+        "path": "/dashboard",
+        "appIcon": "",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": false,
+        "headerContent": "page",
+        "navigationStyle": "default",
+        "titleBarStyle": "default",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": 1,
+        "showDisconnectNotification": true,
+        "allowInstall": false
+    },
+    {
+        "id": "9035255b6fbef99f",
+        "type": "ui-theme",
+        "name": "Standardthema",
+        "colors": {
+            "surface": "#ffffff",
+            "primary": "#0094CE",
+            "bgPage": "#eeeeee",
+            "groupBg": "#ffffff",
+            "groupOutline": "#cccccc"
+        },
+        "sizes": {
+            "density": "default",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "58319c8ed3d875a6",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-node-mysql": "3.0.0",
+            "@flowfuse/node-red-dashboard": "1.30.2"
+        }
+    }
+]

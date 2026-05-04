@@ -1,0 +1,107 @@
+[
+    {
+        "id": "ctrl_flow_tab",
+        "type": "tab",
+        "label": "Aktor-Steuerung",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "ctrl_mqtt_in",
+        "type": "mqtt in",
+        "z": "ctrl_flow_tab",
+        "name": "Temp Input",
+        "topic": "iot/esp32/temperature",
+        "qos": "0",
+        "datatype": "json",
+        "broker": "dd79c6a88eb26361",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 120,
+        "y": 200,
+        "wires": [
+            [
+                "ctrl_hysteresis"
+            ]
+        ]
+    },
+    {
+        "id": "ctrl_hysteresis",
+        "type": "function",
+        "z": "ctrl_flow_tab",
+        "name": "Hysterese-Logik",
+        "func": "// Thresholds\nconst TEMP_MIN = 19.0;\nconst TEMP_MAX = 26.0;\nconst HYSTERESIS = 1.0;\n\n// Persistent state\nconst state = context.get('state') || { led: 'off', servo: 0 };\nconst temp = Number(msg.payload.temperature);\n\nif (!Number.isFinite(temp)) return null;\n\nlet ledCmd = state.led;\nlet servoCmd = state.servo;\n\n// Servo logic: open ventilation when too hot\nif (temp > TEMP_MAX) {\n    servoCmd = 90;\n} else if (temp < TEMP_MAX - HYSTERESIS) {\n    servoCmd = 0;\n}\n\n// LED logic\nif (temp < TEMP_MIN) {\n    ledCmd = 'yellow';\n} else if (temp > TEMP_MIN + HYSTERESIS && temp <= TEMP_MAX) {\n    ledCmd = 'green';\n} else if (temp > TEMP_MAX) {\n    ledCmd = 'red';\n}\n\n// Only send if state changed\nconst msgs = [null, null];\n\nif (ledCmd !== state.led) {\n    msgs[0] = { payload: ledCmd };\n    state.led = ledCmd;\n}\n\nif (servoCmd !== state.servo) {\n    msgs[1] = { payload: String(servoCmd) };\n    state.servo = servoCmd;\n}\n\ncontext.set('state', state);\nreturn msgs;",
+        "outputs": 2,
+        "outputLabels": ["LED", "Servo"],
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 200,
+        "wires": [
+            [
+                "ctrl_mqtt_led"
+            ],
+            [
+                "ctrl_mqtt_servo"
+            ]
+        ]
+    },
+    {
+        "id": "ctrl_mqtt_led",
+        "type": "mqtt out",
+        "z": "ctrl_flow_tab",
+        "name": "CMD LED",
+        "topic": "iot/esp32/cmd/led",
+        "qos": "1",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "dd79c6a88eb26361",
+        "x": 590,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "ctrl_mqtt_servo",
+        "type": "mqtt out",
+        "z": "ctrl_flow_tab",
+        "name": "CMD Servo",
+        "topic": "iot/esp32/cmd/servo",
+        "qos": "1",
+        "retain": "true",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "dd79c6a88eb26361",
+        "x": 600,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "ctrl_debug",
+        "type": "debug",
+        "z": "ctrl_flow_tab",
+        "name": "Debug State",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 600,
+        "y": 300,
+        "wires": []
+    }
+]

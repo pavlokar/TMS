@@ -1,25 +1,11 @@
-<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.7.17 Chrome/128.0.6613.36 Electron/32.0.1 Safari/537.36" version="24.7.17">
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/27.0.9 Chrome/134.0.6998.205 Electron/35.4.0 Safari/537.36" version="27.0.9">
   <diagram name="Seite-1" id="2cgq8aTetHAHraS9iYDF">
-    <mxGraphModel dx="1050" dy="629" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" background="#ffffff" math="0" shadow="0">
+    <mxGraphModel dx="786" dy="516" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" background="#ffffff" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="WKuoxmT-vtlyhLFCiwLH-1" value="ESP32 #1&lt;div&gt;(DS18B20)&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="120" y="280" width="120" height="60" as="geometry" />
-        </mxCell>
-        <mxCell id="WKuoxmT-vtlyhLFCiwLH-2" value="ESP32 #2&lt;div&gt;(DS18B20)&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="120" y="380" width="120" height="60" as="geometry" />
-        </mxCell>
-        <mxCell id="WKuoxmT-vtlyhLFCiwLH-3" value="" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;strokeColor=#000000;" parent="1" source="WKuoxmT-vtlyhLFCiwLH-2" edge="1">
-          <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="480" y="600" as="sourcePoint" />
-            <mxPoint x="480" y="410" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="WKuoxmT-vtlyhLFCiwLH-10" value="publish&lt;div&gt;topic: tms/esp32/&lt;/div&gt;&lt;div&gt;payload: {...}&lt;/div&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="WKuoxmT-vtlyhLFCiwLH-3" vertex="1" connectable="0">
-          <mxGeometry x="0.2009" relative="1" as="geometry">
-            <mxPoint as="offset" />
-          </mxGeometry>
         </mxCell>
         <mxCell id="WKuoxmT-vtlyhLFCiwLH-4" value="" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;strokeColor=#000000;" parent="1" source="WKuoxmT-vtlyhLFCiwLH-1" edge="1">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
@@ -27,17 +13,12 @@
             <mxPoint x="480" y="309" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="WKuoxmT-vtlyhLFCiwLH-6" value="publish&lt;div&gt;topic: tms/esp32/&lt;/div&gt;&lt;div&gt;payload: {...}&lt;/div&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="WKuoxmT-vtlyhLFCiwLH-4" vertex="1" connectable="0">
+        <mxCell id="WKuoxmT-vtlyhLFCiwLH-6" value="publish&lt;div&gt;topic:&amp;nbsp;&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;iot/esp32/temperature&lt;/span&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;payload: {...}&lt;/div&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="WKuoxmT-vtlyhLFCiwLH-4" vertex="1" connectable="0">
           <mxGeometry x="0.1548" y="4" relative="1" as="geometry">
-            <mxPoint as="offset" />
+            <mxPoint x="-23" y="5" as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="WKuoxmT-vtlyhLFCiwLH-9" value="Text" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" parent="WKuoxmT-vtlyhLFCiwLH-4" vertex="1" connectable="0">
-          <mxGeometry x="0.0529" y="4" relative="1" as="geometry">
-            <mxPoint as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="WKuoxmT-vtlyhLFCiwLH-5" value="MQTT Broker&lt;div&gt;(Mosquitto)&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Port 1883&lt;/div&gt;&lt;div&gt;Port 9001 (WS)&lt;/div&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;" parent="1" vertex="1">
+        <mxCell id="WKuoxmT-vtlyhLFCiwLH-5" value="MQTT Broker&lt;div&gt;(Mosquitto)&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;Port 1883&lt;/div&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;" parent="1" vertex="1">
           <mxGeometry x="480" y="280" width="160" height="160" as="geometry" />
         </mxCell>
         <mxCell id="WKuoxmT-vtlyhLFCiwLH-11" value="Node-RED&lt;div&gt;(Dashboard,&lt;/div&gt;&lt;div&gt;DB-Insert)&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
@@ -79,7 +60,7 @@
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="iTgqlUxfw_saZiqnG4L0-1" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;strokeColor=#000000;" edge="1" parent="1" source="WKuoxmT-vtlyhLFCiwLH-11" target="WKuoxmT-vtlyhLFCiwLH-13">
+        <mxCell id="iTgqlUxfw_saZiqnG4L0-1" value="" style="endArrow=classic;html=1;rounded=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;strokeColor=#000000;" parent="1" source="WKuoxmT-vtlyhLFCiwLH-11" target="WKuoxmT-vtlyhLFCiwLH-13" edge="1">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
             <mxPoint x="390" y="480" as="sourcePoint" />
             <mxPoint x="440" y="430" as="targetPoint" />
