@@ -40,15 +40,15 @@ unsigned long lastMeasure = 0;
 String tempStatus = "";
 
 // WiFi
-const char *ssid = "WLAN-ESP";
-const char *password = "agsesp32";
+const char *ssid = "FIAB_Me_Up_Scotty";
+const char *password = "404PassNotFound";
 
 // MQTT
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
 const int mqtt_port = 1883;
-const char *mqtt_host = "10.204.119.42";
+const char *mqtt_host = "192.168.178.28";
 const char *mqtt_client_id = "esp32-temp-01";
 const char *mqtt_user = "mqttuser";
 const char *mqtt_pass = "mqttpass";
